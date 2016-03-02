@@ -139,15 +139,24 @@ LINKCC = $(CC)
 LINKFLAG = $(CFLAGS) $(LDFLAGS)
 
 ifdef NVCC
-LINKFLAG += -lcublas -lcudart
+LINKFLAG += -lcublas -lcudart -lcurand
 NVCC_LINK = dlink.o
 endif
- 
+
 .PHONY: all assembly clean product test warning
 
 all: CFLAGS += $(PRODUCT_FLAGS) 
 all: LINKFLAG += $(PRODUCT_FLAGS) 
 all: $(OBJ_FILES) cnn.pb.o $(MAIN_CUDA_OBJ_FILES)
+ifdef NVCC
+	$(NVCC) -dlink $^ -o $(NVCC_LINK)
+endif
+	$(LINKCC) $^ $(NVCC_LINK) -o $(TARGET) $(LINKFLAG) $(DIR_PARAMS) $(LDFLAGS) $(PROTOBUF_LIB)
+
+assert: CFLAGS += $(PRODUCT_FLAGS) -D_DO_ASSERT
+assert: LINKFLAG += $(PRODUCT_FLAGS) -D_DO_ASSERT
+assert: $(OBJ_FILES) cnn.pb.o $(MAIN_CUDA_OBJ_FILES)
+
 ifdef NVCC
 	$(NVCC) -dlink $^ -o $(NVCC_LINK)
 endif
@@ -161,9 +170,17 @@ ifdef NVCC
 endif
 	$(LINKCC) $^ $(NVCC_LINK) -o $(TARGET) $(LINKFLAG) $(BUILDFLAG) $(DIR_PARAMS) $(LDFLAGS) $(PROTOBUF_LIB)
 
-profile: CFLAGS += -D_DETAILED_PROFILING -D_FASTPOW  $(PRODUCT_FLAGS)
-profile: LINKFLAG += -D_DETAILED_PROFILING -D_FASTPOW  $(PRODUCT_FLAGS)
+profile: CFLAGS += -D_LAYER_PROFILING -D_FASTPOW  $(PRODUCT_FLAGS)
+profile: LINKFLAG += -D_LAYER_PROFILING -D_FASTPOW  $(PRODUCT_FLAGS)
 profile: $(OBJ_FILES) cnn.pb.o $(MAIN_CUDA_OBJ_FILES)
+ifdef NVCC
+	$(NVCC) -dlink $^ -o $(NVCC_LINK)
+endif
+	$(LINKCC) $^ $(NVCC_LINK) -o $(TARGET) $(LINKFLAG) $(DIR_PARAMS) $(LDFLAGS) $(PROTOBUF_LIB)
+
+profile2: CFLAGS += -D_DETAILED_PROFILING -D_LAYER_PROFILING -D_FASTPOW  $(PRODUCT_FLAGS)
+profile2: LINKFLAG += -D_DETAILED_PROFILING -D_LAYER_PROFILING -D_FASTPOW  $(PRODUCT_FLAGS)
+profile2: $(OBJ_FILES) cnn.pb.o $(MAIN_CUDA_OBJ_FILES)
 ifdef NVCC
 	$(NVCC) -dlink $^ -o $(NVCC_LINK)
 endif
@@ -212,8 +229,11 @@ snapshot_debug: LINKFLAG += $(DEBUG_FLAGS) -I $(GTEST_INCLUDE)
 snapshot_debug: $(SNAPSHOT_OBJ_FILES) cnn.pb.o
 	$(CC) $^ -o $(SNAPSHOT_EXECUTABLE) $(LINKFLAG) $(DIR_PARAMS) $(TEST_LDFLAGS) $(PROTOBUF_LIB) 
 
+-include $(addsuffix .d, $(basename $(OBJ_FILES)))
+
 %.o: %.cpp $(PROTO_COMPILED_SRC)
 	$(CC) $(CFLAGS) $(INCLUDE_STR) $(TEST_BLASFLAGS) $(PROTOBUF) -c $< -o $@
+	$(CC) $(CFLAGS) $(INCLUDE_STR) $(TEST_BLASFLAGS) $(PROTOBUF) -MT $@ -MM $< > $(basename $@).d
 
 %.o: %.cu $(PROTO_COMPILED_SRC)
 	$(NVCC) -O3 $(BLAS_DEFS) $(NVCCFLAGS) $(INCLUDE_STR) $(TEST_BLASFLAGS) -dc $< -o $@
@@ -240,5 +260,6 @@ clean:
 	rm -f $(TEST_CUDA_OBJ_FILES)
 	rm -f $(MAIN_CUDA_OBJ_FILES)
 	rm -f $(SNAPSHOT_EXECUTABLE)
+	rm -f src/*.d
 	rm -f tests/toprocess.bin tests/model.bin tests/model.bin.* tests/lenet_toprocess.bin tests/imgnet_toprocess.bin
 

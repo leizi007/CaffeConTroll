@@ -1,8 +1,6 @@
 //
 //  FullyConnectedBridge_impl.hxx
-//  moka
 //
-//  Created by Firas Abuzaid on 2/12/15.
 //  Copyright (c) 2015 Hazy Research. All rights reserved.
 //
 
@@ -153,7 +151,7 @@ initialize_logical_cube(const LogicalCubeType * cube, const cnn::FillerParameter
   } else if (type == "gaussian") {
     p_driver->sgaussian_initialize(data, (DataType) filler_param.mean(), (DataType) filler_param.std());
   } else {
-    cout << "ERROR! INITIALIZATION TYPE NOT SUPPORTED!" << endl;
+    std::cout << "ERROR! INITIALIZATION TYPE NOT SUPPORTED" << std::endl;
     assert(false);
   }
 }
